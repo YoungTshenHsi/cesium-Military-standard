@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+    <script src="./Build/Cesium/Cesium.js"></script>
+    <script src="./js/jquery.min.js"></script>
+    <script src="./js/DrawPolygon.js"></script>
+    <script src="./js/DrawLine.js"></script>
+    <script src="./js/Handler.js"></script>
+    <link href="./Build/Cesium/Widgets/widgets.css" rel="stylesheet">
+</head>
+<body>
+<div id = cesiumContainer></div>
+<button type="button" id="straightArrow" style="position: absolute;left: 20px;top: 20px">直箭头</button>
+<button type="button" id="DiagonalArrow" style="position: absolute;left: 100px;top: 20px">斜箭头</button>
+<button type="button" id="SwallowtailArrow" style="position: absolute;left: 180px;top: 20px">燕尾箭头</button>
+<button type="button" id="Rectangle" style="position: absolute;left: 260px;top: 20px">矩形</button>
+<button type="button" id="Bezierline" style="position: absolute;left: 20px;top: 60px">贝塞尔曲线</button>
+<button type="button" id="Cardinalline" style="position: absolute;left: 120px;top: 60px">Cardinal曲线</button>
+<button type="button" id="GatheringPlace" style="position: absolute;left: 220px;top: 60px">聚集区</button>
+<button type="button" id="BezierArrow" style="position: absolute;left: 320px;top: 60px">贝塞尔箭头</button>
+<button type="button" id="CardinalArrow" style="position: absolute;left: 420px;top: 60px">Cardinal箭头</button>
+<button type="button" id="DoubleArrow" style="position: absolute;left: 520px;top: 60px">双箭头</button>
+<button type="button" id="clear" style="position: absolute;left: 340px;top: 20px">清除</button>
+<button type="button" id="delete" style="position: absolute;left: 420px;top: 20px">删除</button>
+<button type="button" style="position: absolute;left: 520px;top: 20px;">
+    <select id="AddBillboard" class="selectpicker show-tick form-control">
+        <option selected value="Null">无</option>
+        <option value="./images/Slant_Smile.jpg">图标1</option>
+        <option value="./images/slant_smile2.jpg">图标2</option>
+        <option value="./images/zxy.jpg">图标3</option>
+    </select>
+</button>
+<script>
+    let viewer = new Cesium.Viewer('cesiumContainer',{
+        animation:true,
+        skyBox : false,
+        skyAtmosphere : false,
+        baseLayerPicker : false,
+        terrainProvider: Cesium.createWorldTerrain(),
+        infoBox: false,
+        selectionIndicator: false,
+        shouldAnimate: true
+    });
+    viewer.camera.flyTo({
+        destination : Cesium.Cartesian3.fromDegrees(128.055, 42.006, 6000.0)     //相机飞入点
+    });
+    //viewer.scene.globe.enableLighting = true;
+    viewer._cesiumWidget._creditContainer.style.display = "none";
+    $('#straightArrow').click(function(){
+        /*let handler = new Cesium.ScreenSpaceEventHandler(viewer.scene.canvas);
+        let anchorpoints = [];
+        handler.setInputAction((event)=>{
+            let window_position = event.position;
+            anchorpoints.push({x:window_position.x,y:window_position.y});
+            if(anchorpoints.length==2){
+                plotingStraightArrow(viewer,anchorpoints);
+            }
+        },Cesium.ScreenSpaceEventType.LEFT_DOWN);
+        handler.setInputAction((event)=>{
+            handler.destroy();
+        },Cesium.ScreenSpaceEventType.RIGHT_DOWN);*/
+        HandlerStraightArrow(viewer);
+    });
+    $('#DiagonalArrow').click(function(){
+        let handler = new Cesium.ScreenSpaceEventHandler(viewer.scene.canvas);
+        let anchorpoints = [];
+        handler.setInputAction((event)=>{
+            let window_position = event.position;
+            anchorpoints.push({x:window_position.x,y:window_position.y});
+            if(anchorpoints.length==2){
+                plotingDiagonalArrow(viewer,anchorpoints);
+            }
+        },Cesium.ScreenSpaceEventType.LEFT_DOWN);
+        handler.setInputAction((event)=>{
+            handler.destroy();
+        },Cesium.ScreenSpaceEventType.RIGHT_DOWN);
+    });
+    $('#SwallowtailArrow').click(function(){
+        let handler = new Cesium.ScreenSpaceEventHandler(viewer.scene.canvas);
+        let anchorpoints = [];
+        handler.setInputAction((event)=>{
+            let window_position = event.position;
+            anchorpoints.push({x:window_position.x,y:window_position.y});
+            if(anchorpoints.length==2){
+                plotingSwallowtailArrow(viewer,anchorpoints);
+            }
+        },Cesium.ScreenSpaceEventType.LEFT_DOWN);
+        handler.setInputAction((event)=>{
+            handler.destroy();
+        },Cesium.ScreenSpaceEventType.RIGHT_DOWN);
+    });
+    $('#Rectangle').click(function(){
+        HandlerPolygon(viewer,this.id);
+    });
+    $('#GatheringPlace').click(function(){
+        HandlerPolygon(viewer,this.id);
+    });
+    $('#Bezierline').click(function(){
+        HandlerLine(viewer,this.id);
+    });
+    $('#Cardinalline').click(function(){
+        let handler = new Cesium.ScreenSpaceEventHandler(viewer.scene.canvas);
+        let anchorpoints = [];
+        handler.setInputAction((event)=>{
+            let window_position = event.position;
+            anchorpoints.push({x:window_position.x,y:window_position.y});
+        },Cesium.ScreenSpaceEventType.LEFT_DOWN);
+        handler.setInputAction((event)=>{
+            plotingCardinalline(viewer,anchorpoints);
+            handler.destroy();
+        },Cesium.ScreenSpaceEventType.RIGHT_DOWN);
+    });
+    $('#BezierArrow').click(function(){
+        HandlerLine(viewer,this.id);
+    });
+    $('#CardinalArrow').click(function(){
+        let handler = new Cesium.ScreenSpaceEventHandler(viewer.scene.canvas);
+        let anchorpoints = [];
+        handler.setInputAction((event)=>{
+            let window_position = event.position;
+            anchorpoints.push({x:window_position.x,y:window_position.y});
+        },Cesium.ScreenSpaceEventType.LEFT_DOWN);
+        handler.setInputAction((event)=>{
+            plotingCardinalArrow(viewer,anchorpoints);
+            handler.destroy();
+        },Cesium.ScreenSpaceEventType.RIGHT_DOWN);
+    });
+    $('#DoubleArrow').click(function(){
+        let handler = new Cesium.ScreenSpaceEventHandler(viewer.scene.canvas);
+        let anchorpoints = [];
+        handler.setInputAction((event)=>{
+            let window_position = event.position;
+            anchorpoints.push({x:window_position.x,y:window_position.y});
+            if(anchorpoints.length>=4){
+                plotingDoubleArrow(viewer,anchorpoints);
+                handler.destroy();
+            }
+        },Cesium.ScreenSpaceEventType.LEFT_DOWN);
+    });
+    $('#AddBillboard').click(function(){
+       let handler = new Cesium.ScreenSpaceEventHandler(viewer.scene.canvas);
+       handler.setInputAction((event)=>{
+           let value = $(this).val();
+           let window_position = event.position;
+           let ellipsoid = viewer.scene.globe.ellipsoid;
+           let cartesian = viewer.camera.pickEllipsoid(window_position,ellipsoid);
+           viewer.entities.add({
+               name:'billboard',
+               position:cartesian,
+               billboard:{
+                   image:value,
+                   width:64,
+                   height:64
+               }
+           })
+       },Cesium.ScreenSpaceEventType.LEFT_DOWN);
+       handler.setInputAction((event)=>{
+           handler.destroy();
+       })
+    });
+    $('#clear').click(function(){
+        viewer.entities.removeAll();
+    });
+    $('#delete').click(function() {
+        let handler = new Cesium.ScreenSpaceEventHandler(viewer.scene.canvas);
+        handler.setInputAction((event) => {
+            let window_position=event.position;
+            let pickedObject=viewer.scene.pick(window_position);
+            if(Cesium.defined(pickedObject)){
+                viewer.entities.remove(pickedObject.id);
+            }
+            else{
+                return;
+            }
+        }, Cesium.ScreenSpaceEventType.LEFT_CLICK);
+        handler.setInputAction((event)=>{
+            handler.destroy();
+        },Cesium.ScreenSpaceEventType.RIGHT_DOWN);
+    });
+</script>
+</body>
+</html>
