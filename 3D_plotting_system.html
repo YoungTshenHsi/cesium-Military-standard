@@ -1,0 +1,692 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>3D plotting</title>
+    <script src="./Build/Cesium/Cesium.js"></script>
+    <script src="./js/jquery.min.js"></script>
+    <script src="./js/jquery.easyui.min.js"></script>
+    <script src="./js/DrawPolygon.js"></script>
+    <script src="./js/DrawLine.js"></script>
+    <link rel="stylesheet" href="./themes/default/easyui.css">
+    <link rel="stylesheet" href="./themes/icon.css">
+    <link href="./Build/Cesium/Widgets/widgets.css" rel="stylesheet">
+</head>
+<body>
+<div class="panel-header" style="background: #004a7e;height:100px;width: 100%">
+    <img src="./images/favicon.ico" style="width:64px;height:64px;position:absolute;right:50px;top:23px"/>
+    <div style="color: #edeff1;position: absolute;right:150px;line-height: 100px;font-size: 40px;font-family: '华文楷体';">
+        三 维 军 事 标 绘 系 统
+    </div>
+    <div style="color: #edeff1;height:10px;position: absolute;right:215px;font-size: 22px;bottom: 30px;font-family: 'Times New Roman';">
+        3D military plotting system
+    </div>
+    <div style="color: #edeff1;position: absolute;left:20px;line-height: 140px;padding:5px;width:auto;">
+        <a href="#" class="easyui-linkbutton" style="width:50px" onclick="Home()">首页</a>
+        <a href="#" class="easyui-linkbutton" style="width:25%" onclick="dynamic_plotting()">动态绘制</a>
+        <a href="#" class="easyui-linkbutton" style="width:25%" onclick="measure()">测量工具</a>
+        <a href="#" class="easyui-linkbutton" style="width:20%" onclick="geographic_analysis()">地理分析</a>
+        <a href="#" class="easyui-linkbutton" style="width:20%" onclick="load_layer()">加载图层</a>
+    </div>
+</div>
+<div class="easyui-layout" style="width:100%;height:620px;">
+    <div data-options="region:'east',split:true" title=" " style="width:60px;">
+        <input name="imgbtn" type="image" title="编辑" src="./images/Edit.svg" width="50" height="50" border="0">
+        <input name="imgbtn" type="image" title="平移" src="./images/Basket.svg" width="50" height="50" border="0">
+        <input name="imgbtn" type="image" title="放大" src="./images/Plus.svg" width="50" height="50" border="0">
+        <input name="imgbtn" type="image" title="缩小" src="./images/Basket.svg" width="50" height="50" border="0">
+        <input name="imgbtn" type="image" title="清除" src="./images/Basket.svg" width="50" height="50" border="0" onclick="viewer.entities.removeAll();">
+        <input name="imgbtn" type="image" title="删除" src="./images/Trash.svg" width="50" height="50" border="0" onclick="delete_obj()">
+        <input name="imgbtn" type="image" title="保存" src="./images/File.svg" width="50" height="50" border="0">
+    </div>
+    <div id="Dynamic_plotting" data-options="region:'west',split:true,collapsible:false" style="display:none;width:250px;">
+        <div class="easyui-accordion" data-options="fit:true,border:false" style="height:80px">
+            <div title="基本符号" data-options="selected:false" style="height:30px;padding:5px;">
+                <a href="#" class="easyui-linkbutton" data-options="plain:true" id="Bezierline" >贝塞尔曲线</a>
+                <a href="#" class="easyui-linkbutton" data-options="plain:true" id="Round_rectangle" >圆角矩形</a>
+                <a href="#" class="easyui-linkbutton" data-options="plain:true" id="Sector" >扇形</a>
+                <a href="#" class="easyui-linkbutton" data-options="plain:true" id="Bow" >弓形</a>
+            </div>
+            <div title="指示符号" data-options="selected:false" style="padding:5px;">
+                <a href="#" class="easyui-linkbutton" data-options="plain:true" id="Bezier_arrow" >贝塞尔箭头</a>
+                <a href="#" class="easyui-linkbutton" data-options="plain:true" id="Straight_arrow" >直箭头</a>
+                <a href="#" class="easyui-linkbutton" data-options="plain:true" id="Double_arrow" >双箭头</a>
+                <a href="#" class="easyui-linkbutton" data-options="plain:true" id="Diagonal_arrow" >斜箭头</a>
+            </div>
+            <div title="标识符号" data-options="selected:true" style="padding:5px">
+                <a href="#" class="easyui-linkbutton" data-options="plain:true" id="Flag" >旗标</a>
+            </div>
+        </div>
+    </div>
+    <div id="measure" data-options="region:'west',split:true,collapsible:false" style="display:none;width:250px;"></div>
+    <div id="Geographic_analysis" data-options="region:'west',split:true,collapsible:false" style="display:none;width:250px;"></div>
+    <div id="Load_layer" data-options="region:'west',split:true,collapsible:false" style="display:none;width:250px;"></div>
+    <div data-options="region:'center'" id="cesiumContainer"></div>
+</div>
+<script>
+    var viewer = new Cesium.Viewer('cesiumContainer',{
+        animation: false,
+        baseLayerPicker: false,
+        timeline: false,
+        infoBox: false,
+        selectionIndicator: false,
+        imageryProvider: new Cesium.WebMapTileServiceImageryProvider({
+            url: "http://t0.tianditu.com/img_w/wmts?service=wmts&request=GetTile&version=1.0.0&LAYER=img&tileMatrixSet=w&TileMatrix={TileMatrix}&TileRow={TileRow}&TileCol={TileCol}&style=default&format=tiles",
+            layer: "tdtBasicLayer",
+            style: "default",
+            format: "image/jpeg",
+            tileMatrixSetID: "GoogleMapsCompatible",
+            show: false
+        })
+    });
+    viewer._cesiumWidget._creditContainer.style.display="none";
+    viewer.scene.globe.enableLighting = true;
+    viewer.scene.globe.depthTestAgainstTerrain = true;
+    viewer.camera.flyTo({
+        destination :  Cesium.Cartesian3.fromDegrees(116.435314,39.960521, 150000.0), // 设置位置
+        orientation: {
+            heading : Cesium.Math.toRadians(20.0), // 方向
+            pitch : Cesium.Math.toRadians(-90.0),// 倾斜角度
+            roll : 0
+        },
+        duration:5, // 设置飞行持续时间，默认会根据距离来计算
+        complete: function () {
+            // 到达位置后执行的回调函数
+            console.log('到达目的地');
+        },
+        cancle: function () {
+            // 如果取消飞行则会调用此函数
+            console.log('飞行取消')
+        },
+        pitchAdjustHeight: -90, // 如果摄像机飞越高于该值，则调整俯仰俯仰的俯仰角度，并将地球保持在视口中。
+        maximumHeight:5000, // 相机最大飞行高度
+        flyOverLongitude: 100, // 如果到达目的地有2种方式，设置具体值后会强制选择方向飞过这个经度
+    });
+    $('#Bezierline').click(function(){
+        let handler = new Cesium.ScreenSpaceEventHandler(viewer.scene.canvas);
+        let anchorpoints = [];
+        let polyline = undefined;
+        handler.setInputAction((event)=>{
+            let window_position = event.position;
+            if(anchorpoints.length==0){
+                anchorpoints.push({x:window_position.x,y:window_position.y});
+            }
+            anchorpoints.push({x:window_position.x+0.000001,y:window_position.y+0.000001});
+        },Cesium.ScreenSpaceEventType.LEFT_DOWN);
+        handler.setInputAction(function(movement) {
+            let w_p = movement.endPosition;
+            if (anchorpoints.length > 0) {
+                let window_points = _createBezierPoints(anchorpoints);
+                let GeoPoints = _createGeoPoints(viewer, window_points);
+                if (!Cesium.defined(polyline)) {
+                    polyline = viewer.entities.add({
+                        name : 'Bezierline',
+                        polyline : {
+                            positions : Cesium.Cartesian3.fromDegreesArray(GeoPoints),
+                            width : 2,
+                            material : Cesium.Color.RED
+                        }
+                    });
+                }
+                else {
+                    anchorpoints.pop();
+                    anchorpoints.push({x: w_p.x, y: w_p.y});
+                    let window_points = _createBezierPoints(anchorpoints);
+                    let GeoPoints = _createGeoPoints(viewer, window_points);
+                    polyline.polyline.positions = new Cesium.CallbackProperty(() => {
+                        return Cesium.Cartesian3.fromDegreesArray(GeoPoints);
+                    }, false)
+                }
+            }
+        },Cesium.ScreenSpaceEventType.MOUSE_MOVE);
+        handler.setInputAction((event)=>{
+            handler.destroy();
+        },Cesium.ScreenSpaceEventType.RIGHT_DOWN);
+    });
+    $('#Round_rectangle').click(function(){
+        let handler = new Cesium.ScreenSpaceEventHandler(viewer.scene.canvas);
+        let anchorpoints = [];
+        let polygon = undefined;
+        handler.setInputAction((event)=>{
+            let window_position = event.position;
+            if(anchorpoints.length==0){
+                anchorpoints.push({x:window_position.x,y:window_position.y});
+            }
+            anchorpoints.push({x:window_position.x,y:window_position.y});
+        },Cesium.ScreenSpaceEventType.LEFT_DOWN);
+        handler.setInputAction(function(movement){
+            let w_p = movement.endPosition;
+            if(anchorpoints.length>1){
+                if (!Cesium.defined(polygon)) {
+                    let window_points = _computeRoundedRectanglePoints(anchorpoints);
+                    let GeoPoints = _createGeoPoints(viewer,window_points);
+                    polygon = viewer.entities.add({
+                        name:'Rounded Rectangle',
+                        polygon:{
+                            hierarchy: Cesium.Cartesian3.fromDegreesArray(GeoPoints),
+                            material:Cesium.Color.RED.withAlpha(0.5),
+                            //height:0,
+                            outline:true,
+                            outlineColor:Cesium.Color.GREEN,
+                            outlineWidth:5
+                        }
+                    });
+                }else{
+                    anchorpoints.pop();
+                    anchorpoints.push({x:w_p.x,y:w_p.y});
+                    let window_points = _computeRoundedRectanglePoints(anchorpoints);
+                    let GeoPoints = _createGeoPoints(viewer,window_points);
+                    polygon.polygon.hierarchy = new Cesium.CallbackProperty(()=>{
+                        return Cesium.Cartesian3.fromDegreesArray(GeoPoints);
+                    },false)
+                }
+            }
+        },Cesium.ScreenSpaceEventType.MOUSE_MOVE);
+        handler.setInputAction((event)=>{
+            handler.destroy();
+        },Cesium.ScreenSpaceEventType.RIGHT_DOWN);
+
+    });
+    $('#Sector').click(function(){let handler = new Cesium.ScreenSpaceEventHandler(viewer.scene.canvas);
+        let anchorpoints = [];
+        let polygon = undefined;
+        handler.setInputAction((event)=>{
+            let window_position = event.position;
+            if(anchorpoints.length==1){
+                anchorpoints.push({x:window_position.x,y:window_position.y});
+            }
+            anchorpoints.push({x:window_position.x,y:window_position.y});
+        },Cesium.ScreenSpaceEventType.LEFT_DOWN);
+        handler.setInputAction(function(movement){
+            let w_p = movement.endPosition;
+            if(anchorpoints.length>2){
+                if (!Cesium.defined(polygon)) {
+                    let window_points = _computeSectorPoints(anchorpoints);
+                    let GeoPoints = _createGeoPoints(viewer,window_points);
+                    polygon = viewer.entities.add({
+                        name:'Sector',
+                        polygon:{
+                            hierarchy: Cesium.Cartesian3.fromDegreesArray(GeoPoints),
+                            material:Cesium.Color.RED.withAlpha(0.5),
+                            //height:0,
+                            outline:true,
+                            outlineColor:Cesium.Color.GREEN,
+                            outlineWidth:5
+                        }
+                    });
+                }else{
+                    anchorpoints.pop();
+                    anchorpoints.push({x:w_p.x,y:w_p.y});
+                    let window_points = _computeSectorPoints(anchorpoints);
+                    let GeoPoints = _createGeoPoints(viewer,window_points);
+                    polygon.polygon.hierarchy = new Cesium.CallbackProperty(()=>{
+                        return Cesium.Cartesian3.fromDegreesArray(GeoPoints);
+                    },false)
+                }
+            }
+        },Cesium.ScreenSpaceEventType.MOUSE_MOVE);
+        handler.setInputAction((event)=>{
+            handler.destroy();
+        },Cesium.ScreenSpaceEventType.RIGHT_DOWN);});
+    $('#Bow').click(function(){let handler = new Cesium.ScreenSpaceEventHandler(viewer.scene.canvas);
+        let anchorpoints = [];
+        let polygon = undefined;
+        handler.setInputAction((event)=>{
+            let window_position = event.position;
+            if(anchorpoints.length==1){
+                anchorpoints.push({x:window_position.x,y:window_position.y});
+            }
+            anchorpoints.push({x:window_position.x,y:window_position.y});
+        },Cesium.ScreenSpaceEventType.LEFT_DOWN);
+        handler.setInputAction(function(movement){
+            let w_p = movement.endPosition;
+            if(anchorpoints.length>2){
+                if (!Cesium.defined(polygon)) {
+                    let window_points = _computeBowPoints(anchorpoints);
+                    let GeoPoints = _createGeoPoints(viewer,window_points);
+                    polygon = viewer.entities.add({
+                        name:'Bow',
+                        polygon:{
+                            hierarchy: Cesium.Cartesian3.fromDegreesArray(GeoPoints),
+                            material:Cesium.Color.RED.withAlpha(0.5),
+                            //height:0,
+                            outline:true,
+                            outlineColor:Cesium.Color.GREEN,
+                            outlineWidth:5
+                        }
+                    });
+                }else{
+                    anchorpoints.pop();
+                    anchorpoints.push({x:w_p.x,y:w_p.y});
+                    let window_points = _computeBowPoints(anchorpoints);
+                    let GeoPoints = _createGeoPoints(viewer,window_points);
+                    polygon.polygon.hierarchy = new Cesium.CallbackProperty(()=>{
+                        return Cesium.Cartesian3.fromDegreesArray(GeoPoints);
+                    },false)
+                }
+            }
+        },Cesium.ScreenSpaceEventType.MOUSE_MOVE);
+        handler.setInputAction((event)=>{
+            handler.destroy();
+        },Cesium.ScreenSpaceEventType.RIGHT_DOWN);});
+    $('#Bezier_arrow').click(function(){
+        let handler = new Cesium.ScreenSpaceEventHandler(viewer.scene.canvas);
+        let anchorpoints = [];
+        let polyline = undefined;
+        handler.setInputAction((event)=>{
+            let window_position = event.position;
+            if(anchorpoints.length==0){
+                anchorpoints.push({x:window_position.x,y:window_position.y});
+            }
+            anchorpoints.push({x:window_position.x+0.000001,y:window_position.y+0.000001});
+            console.log(anchorpoints);
+        },Cesium.ScreenSpaceEventType.LEFT_DOWN);
+        handler.setInputAction(function(movement) {
+            let w_p = movement.endPosition;
+            if (anchorpoints.length > 0) {
+                let window_points = _createBezierPoints(anchorpoints);
+                let GeoPoints = _createGeoPoints(viewer, window_points);
+                if (!Cesium.defined(polyline)) {
+                    polyline = viewer.entities.add({
+                        name: 'BezierArrow',
+                        polyline: {
+                            positions: Cesium.Cartesian3.fromDegreesArray(GeoPoints),
+                            width: 5,
+                            material: new Cesium.PolylineArrowMaterialProperty(Cesium.Color.RED)
+                        }
+                    });
+                }
+                else {
+                anchorpoints.pop();
+                anchorpoints.push({x: w_p.x, y: w_p.y});
+                let window_points = _createBezierPoints(anchorpoints);
+                let GeoPoints = _createGeoPoints(viewer, window_points);
+                polyline.polyline.positions = new Cesium.CallbackProperty(() => {
+                    return Cesium.Cartesian3.fromDegreesArray(GeoPoints);
+                    }, false)
+                }
+            }
+        },Cesium.ScreenSpaceEventType.MOUSE_MOVE);
+        handler.setInputAction((event)=>{
+            handler.destroy();
+        },Cesium.ScreenSpaceEventType.RIGHT_DOWN);
+    });
+    $('#Straight_arrow').click(function(){
+        let handler = new Cesium.ScreenSpaceEventHandler(viewer.scene.canvas);
+        let anchorpoints = [];
+        let polygon = undefined;
+        handler.setInputAction((event)=>{
+            let w_p = event.position;
+            if(anchorpoints.length==0){
+                anchorpoints.push({x:w_p.x,y:w_p.y});
+            }
+            anchorpoints.push({x:w_p.x+1,y:w_p.y+1});
+        },Cesium.ScreenSpaceEventType.LEFT_DOWN)
+        handler.setInputAction((event)=>{
+            let w_p = event.endPosition;
+            if(anchorpoints.length>1){
+                let control_w_p = calculateMorePoints(anchorpoints);
+                let GeoPoints = _createGeoPoints(viewer,control_w_p);
+                if(!Cesium.defined(polygon)){
+                    polygon = viewer.entities.add({
+                        name:'StraightArrow',
+                        polygon: {
+                            hierarchy: Cesium.Cartesian3.fromDegreesArray(GeoPoints),
+                            material: Cesium.Color.RED.withAlpha(0.5)
+                        }
+                    })
+                }
+                else{
+                    anchorpoints.pop();
+                    anchorpoints.push({x:w_p.x,y:w_p.y});
+                    polygon.polygon.hierarchy = new Cesium.CallbackProperty(()=>{
+                        return Cesium.Cartesian3.fromDegreesArray(GeoPoints);
+                    },false)
+                }
+            }
+            else{
+                return;
+            }
+        },Cesium.ScreenSpaceEventType.MOUSE_MOVE);
+        handler.setInputAction((event)=>{
+            handler.destroy();
+        },Cesium.ScreenSpaceEventType.RIGHT_DOWN)
+    });
+    $('#Double_arrow').click(function(){
+        let handler = new Cesium.ScreenSpaceEventHandler(viewer.scene.canvas);
+        let anchorpoints = [];
+        handler.setInputAction((event)=>{
+            let window_position = event.position;
+            anchorpoints.push({x:window_position.x,y:window_position.y});
+            if(anchorpoints.length>=4){
+                plotingDoubleArrow(viewer,anchorpoints);
+                handler.destroy();
+            }
+        },Cesium.ScreenSpaceEventType.LEFT_DOWN);
+    });
+    $('#Diagonal_arrow').click(function(){
+        let handler = new Cesium.ScreenSpaceEventHandler(viewer.scene.canvas);
+        let anchorpoints = [];
+        handler.setInputAction((event)=>{
+            let window_position = event.position;
+            anchorpoints.push({x:window_position.x,y:window_position.y});
+            if(anchorpoints.length==2){
+                plotingDiagonalArrow(viewer,anchorpoints);
+            }
+        },Cesium.ScreenSpaceEventType.LEFT_DOWN);
+        handler.setInputAction((event)=>{
+            handler.destroy();
+        },Cesium.ScreenSpaceEventType.RIGHT_DOWN);
+    });
+    $('#Flag').click(function(){});
+    function delete_obj(){
+        let handler = new Cesium.ScreenSpaceEventHandler(viewer.scene.canvas);
+        handler.setInputAction((event) => {
+            let window_position=event.position;
+            let pickedObject=viewer.scene.pick(window_position);
+            if(Cesium.defined(pickedObject)){
+                viewer.entities.remove(pickedObject.id);
+            }
+            else{
+                return;
+            }
+        }, Cesium.ScreenSpaceEventType.LEFT_CLICK);
+        handler.setInputAction((event)=>{
+            handler.destroy();
+        },Cesium.ScreenSpaceEventType.RIGHT_DOWN);
+    }
+    function Home() {
+        $("#Dynamic_plotting").attr("style", "display:none;width:250px;");
+        $("#measure").attr("style", "display:none;line-height: 60px;width:100%;height:850px;");
+        $("#Geographic_analysis").attr("style", "display:none;line-height: 60px;width:100%;height:850px;");
+        $("#Load_layer").attr("style", "display:none;line-height: 60px;width:100%;height:850px;");
+    }
+    function dynamic_plotting() {
+        $("#Dynamic_plotting").attr("style", "width:250px;");
+        $("#measure").attr("style", "display:none;line-height: 60px;width:100%;height:850px;");
+        $("#Geographic_analysis").attr("style", "display:none;line-height: 60px;width:100%;height:850px;");
+        $("#Load_layer").attr("style", "display:none;line-height: 60px;width:100%;height:850px;");
+    }
+    function measure() {
+        $("#Dynamic_plotting").attr("style", "display:none;width:250px;");
+        $("#measure").attr("style", "line-height: 60px;width:100%;height:850px;");
+        $("#Geographic_analysis").attr("style", "display:none;line-height: 60px;width:100%;height:850px;");
+        $("#Load_layer").attr("style", "display:none;line-height: 60px;width:100%;height:850px;");
+    }
+    function geographic_analysis() {
+        $("#Dynamic_plotting").attr("style", "display:none;width:250px;");
+        $("#measure").attr("style", "display:none;line-height: 60px;width:100%;height:850px;");
+        $("#Geographic_analysis").attr("style", "line-height: 60px;width:100%;height:850px;");
+        $("#Load_layer").attr("style", "display:none;line-height: 60px;width:100%;height:850px;");
+    }
+    function load_layer() {
+        $("#Dynamic_plotting").attr("style", "display:none;width:250px;");
+        $("#measure").attr("style", "display:none;line-height: 60px;width:100%;height:850px;");
+        $("#Geographic_analysis").attr("style", "display:none;line-height: 60px;width:100%;height:850px;");
+        $("#Load_layer").attr("style", "line-height: 60px;width:100%;height:850px;");
+    }
+    function calculateMorePoints(anchorpoints,ratio=6){
+        let pointsR;
+        if(anchorpoints.length>2){
+            let l=0,w,pointS,pointE;
+            for(let i = 0;i<anchorpoints.length-1;i++)
+            {
+                //取出首尾两个点
+                pointS = anchorpoints[i];
+                pointE = anchorpoints[i+1];
+                l += Math.sqrt((pointE.y-pointS.y)*(pointE.y-pointS.y)+(pointE.x-pointS.x)*(pointE.x-pointS.x));
+            }
+            w = l/ratio;
+            //定义左右控制点集合
+            let points_C_l = [];
+            let points_C_r = [];
+            //定义尾部左右的起始点
+            let point_t_l = {x:undefined,y:undefined};
+            let point_t_r = {x:undefined,y:undefined};
+            //计算中间的所有交点
+            for(let j = 0;j<anchorpoints.length-2;j++)
+            {
+                let pointU_1 = anchorpoints[j];//第一个用户传入的点
+                let pointU_2 = anchorpoints[j+1];//第二个用户传入的点
+                let pointU_3 = anchorpoints[j+2];//第三个用户传入的点
+
+                //计算向量
+                let v_U_1_2 = {x:pointU_2.x-pointU_1.x,y:pointU_2.y-pointU_1.y};
+                let v_U_2_3 = {x:pointU_3.x-pointU_2.x,y:pointU_3.y-pointU_2.y};
+                let v_lr_1_2 = calculateVector(v_U_1_2,Math.PI/2,w/2);
+                let v_l_1_2 = v_lr_1_2[0];
+                let v_r_1_2 = v_lr_1_2[1];
+                let v_lr_2_3 = calculateVector(v_U_2_3,Math.PI/2,w/2);
+                let v_l_2_3 = v_lr_2_3[0];
+                let v_r_2_3 = v_lr_2_3[1];
+
+                //获取左右
+                let point_l_1 = {x:pointU_1.x+v_l_1_2.x,y:pointU_1.y+v_l_1_2.y};
+                let point_r_1 = {x:pointU_1.x+v_r_1_2.x,y:pointU_1.y+v_r_1_2.y};
+                let point_l_2 = {x:pointU_2.x+v_l_2_3.x,y:pointU_2.y+v_l_2_3.y};
+                let point_r_2 = {x:pointU_2.x+v_r_2_3.x,y:pointU_2.y+v_r_2_3.y};
+                //向量v_U_1_2和向量v-point_l_1和point_r_1是平行的
+                //如果向量a=(x1，y1)，b=(x2，y2)，则a//b等价于x1y2－x2y1=0
+                //得到(x-point_l_1.x)*v_U_1_2.y=v_U_1_2.x*(y-point_l_1.y)
+                //得到(point_l_2.x-x)*v_U_2_3.y=v_U_2_3.x*(point_l_2.y-y)
+                //可以求出坐边的交点(x,y)，即控制点
+                let point_C_l = calculateIntersection(v_U_1_2,v_U_2_3,point_l_1,point_l_2);
+                let point_C_r = calculateIntersection(v_U_1_2,v_U_2_3,point_r_1,point_r_2);
+                //定义中间的控制点
+                let point_C_l_c;
+                let point_C_r_c;
+                if(j == 0)
+                {
+                    //记录下箭头尾部的左右两个端点
+                    point_t_l = point_l_1;
+                    point_t_r = point_r_1;
+                    //计算第一个曲线控制点
+                    point_C_l_c = {x:(point_t_l.x+point_C_l.x)/2,y:(point_t_l.y+point_C_l.y)/2};
+                    point_C_r_c = {x:(point_t_r.x+point_C_r.x)/2,y:(point_t_r.y+point_C_r.y)/2};
+                    //添加两个拐角控制点中间的中间控制点
+                    points_C_l.push(point_C_l_c);
+                    points_C_r.push(point_C_r_c);
+                }
+                else
+                {
+                    //获取前一个拐角控制点
+                    let point_C_l_q = points_C_l[points_C_l.length-1];
+                    let point_C_r_q = points_C_r[points_C_r.length-1];
+                    //计算两个拐角之间的中心控制点
+                    point_C_l_c = {x:(point_C_l_q.x+point_C_l.x)/2,y:(point_C_l_q.y+point_C_l.y)/2};
+                    point_C_r_c = {x:(point_C_r_q.x+point_C_r.x)/2,y:(point_C_r_q.y+point_C_r.y)/2};
+                    //添加两个拐角控制点中间的中间控制点
+                    points_C_l.push(point_C_l_c);
+                    points_C_r.push(point_C_r_c);
+                }
+                //添加后面的拐角控制点
+                points_C_l.push(point_C_l);
+                points_C_r.push(point_C_r);
+            }
+            //计算
+
+
+
+            //进入计算头部
+            //计算一下头部的长度
+            let pointU_E2 = anchorpoints[anchorpoints.length-2];//倒数第二个用户点
+            let pointU_E1 = anchorpoints[anchorpoints.length-1];//最后一个用户点
+            //
+            let v_U_E2_E1 = {x:pointU_E1.x-pointU_E2.x,y:pointU_E1.y-pointU_E2.y};
+            let head_d = Math.sqrt(v_U_E2_E1.x*v_U_E2_E1.x + v_U_E2_E1.y*v_U_E2_E1.y);
+            //定义头部的左右两结束点
+            let point_h_l;
+            let point_h_r;
+
+            //头部左右两向量数组
+            let v_lr_h = [];
+            let v_l_h = {x:undefined,y:undefined};
+            let v_r_h = {x:undefined,y:undefined};
+            //定义曲线最后一个控制点，也就是头部结束点和最后一个拐角点的中点
+            let point_C_l_e = {x:undefined,y:undefined};
+            let point_C_r_e = {x:undefined,y:undefined};
+            //定义三角形的左右两个点
+            let point_triangle_l = {x:undefined,y:undefined};
+            let point_triangle_r = {x:undefined,y:undefined};
+
+            //获取当前的最后的控制点，也就是之前计算的拐角点
+            let point_C_l_eq = points_C_l[points_C_l.length-1];
+            let point_C_r_eq = points_C_r[points_C_r.length-1];
+
+            //三角的高度都不够
+            if(head_d <= w)
+            {
+                v_lr_h = calculateVector(v_U_E2_E1,Math.PI/2,w/2);
+                v_l_h = v_lr_h[0];
+                v_r_h = v_lr_h[1];
+                //获取头部的左右两结束点
+                point_h_l = {x:pointU_E2.x+v_l_h.x,y:pointU_E2.y+v_l_h.y};
+                point_h_r = {x:pointU_E2.x+v_r_h.x,y:pointU_E2.y+v_r_h.y};
+
+
+                //计算最后的控制点
+                point_C_l_e = {x:(point_C_l_eq.x+point_h_l.x)/2,y:(point_C_l_eq.y+point_h_l.y)/2};
+                point_C_r_e = {x:(point_C_r_eq.x+point_h_r.x)/2,y:(point_C_r_eq.y+point_h_r.y)/2};
+
+                //添加最后的控制点（中心点）
+                points_C_l.push(point_C_l_e);
+                points_C_r.push(point_C_r_e);
+
+
+                //计算三角形的左右两点
+                point_triangle_l = {x:2*point_h_l.x-pointU_E2.x,y:2*point_h_l.y-pointU_E2.y};
+                point_triangle_r = {x:2*point_h_r.x-pointU_E2.x,y:2*point_h_r.y-pointU_E2.y};
+            }
+            //足够三角的高度
+            else
+            {
+                //由于够了三角的高度，所以首先去掉三角的高度
+
+                //计算向量
+                let v_E2_E1 = {x:pointU_E1.x-pointU_E2.x,y:pointU_E1.y-pointU_E2.y};
+                //取模
+                let v_E2_E1_d = Math.sqrt(v_E2_E1.x*v_E2_E1.x+v_E2_E1.y*v_E2_E1.y);
+                //首先需要计算三角形的底部中心点
+                let point_c = {x:pointU_E1.x-v_E2_E1.x*w/v_E2_E1_d,y:pointU_E1.y-v_E2_E1.y*w/v_E2_E1_d};
+                //计算出在三角形上底边上头部结束点
+
+                v_lr_h = calculateVector(v_U_E2_E1,Math.PI/2,w/2);
+                v_l_h = v_lr_h[0];
+                v_r_h = v_lr_h[1];
+                //获取头部的左右两结束点
+                point_h_l = {x:point_c.x+v_l_h.x,y:point_c.y+v_l_h.y};
+                point_h_r = {x:point_c.x+v_r_h.x,y:point_c.y+v_r_h.y};
+
+                //计算最后的控制点
+                point_C_l_e = {x:(point_C_l_eq.x+point_h_l.x)/2,y:(point_C_l_eq.y+point_h_l.y)/2};
+                point_C_r_e = {x:(point_C_r_eq.x+point_h_r.x)/2,y:(point_C_r_eq.y+point_h_r.y)/2};
+
+                //添加最后的控制点（中心点）
+                points_C_l.push(point_C_l_e);
+                points_C_r.push(point_C_r_e);
+
+                //计算三角形的左右点
+                point_triangle_l = {x:2*point_h_l.x-point_c.x,y:2*point_h_l.y-point_c.y};
+                point_triangle_r = {x:2*point_h_r.x-point_c.x,y:2*point_h_r.y-point_c.y};
+            }
+
+            //使用控制点计算差值
+            //计算贝塞尔的控制点
+            let points_BC_l=[],points_BC_r=[];
+            for (let i=0;i<points_C_l.length-2;i++){
+                let temp_l = [];
+                let temp_r = [];
+                let temp1_l = points_C_l[i];
+                let temp2_l = points_C_l[i+1];
+                let temp3_l = points_C_l[i+2];
+                let temp1_r = points_C_r[i];
+                let temp2_r = points_C_r[i+1];
+                let temp3_r = points_C_r[i+2];
+                temp_l.push(temp1_l,temp2_l,temp3_l);
+                temp_r.push(temp1_r,temp2_r,temp3_r);
+                let points_temp_l = _createBezierPoints(temp_l);
+                let points_temp_r = _createBezierPoints(temp_r);
+                points_BC_l = points_BC_l.concat(points_temp_l);
+                points_BC_r = points_BC_r.concat(points_temp_r);
+            }
+            //组合左右点集和三角形三个点
+            pointsR = [point_t_l];
+            //首先连接左边的差值曲线
+            pointsR = pointsR.concat(points_BC_l);
+            //添加左边头部结束点
+            pointsR.push(point_h_l);
+            //添加三角形左边点
+            pointsR.push(point_triangle_l);
+            //添加三角形顶点
+            pointsR.push(pointU_E1);
+            //添加三角形右边点
+            pointsR.push(point_triangle_r);
+            //添加右边头部结束点
+            pointsR.push(point_h_r);
+            //合并右边的所有点（先把右边的点倒序）
+            pointsR = pointsR.concat(points_BC_r.reverse());
+
+            //添加右边尾部起始点
+            pointsR.push(point_t_r);
+        }
+        else{
+            pointsR = calculateTwoPoints(anchorpoints)
+        }
+        return pointsR;
+    }
+    function calculateTwoPoints(anchorpoints,ratio=6){
+        let pointS = anchorpoints[0];//箭头起点
+        let pointE = anchorpoints[1];//箭头终点
+        let controlPois = [];
+        let v_based ={x:pointE.x-pointS.x,y:pointE.y-pointS.y};//计算基准向量
+        let l = Math.sqrt((pointE.x-pointS.x)*(pointE.x-pointS.x)+(pointE.y-pointS.y)*(pointE.y-pointS.y));//计算箭头长度
+        let w = l/ratio;//箭头宽度
+        let x_ = pointS.x+5*(pointE.x-pointS.x)/ratio;//箭头前端三角形中点坐标x
+        let y_ = pointS.y+5*(pointE.y-pointS.y)/ratio;//箭头前端三角形中点坐标y
+        let v_lr = calculateVector(v_based,Math.PI/2,w/2);
+        let v_l = v_lr[0];
+        let v_r = v_lr[1];
+        let point1 = {x:pointS.x+v_l.x,y:pointS.y+v_l.y};
+        let point2 = {x:x_+v_l.x,y:y_+v_l.y};
+        let point3 = {x:x_+2*v_l.x,y:y_+2*v_l.y};
+        let point4 = {x:pointE.x,y:pointE.y};
+        let point5 = {x:x_+2*v_r.x,y:y_+2*v_r.y};
+        let point6 = {x:x_+v_r.x,y:y_+v_r.y};
+        let point7 = {x:pointS.x+v_r.x,y:pointS.y+v_r.y};
+        controlPois.push(point1,point2,point3,point4,point5,point6,point7);
+        return controlPois;
+    }
+    function calculateIntersection(v_1, v_2, point1, point2) {
+        let x;
+        let y;
+        if (v_1.y * v_2.x - v_1.x * v_2.y == 0) {
+            if (v_1.x * v_2.x > 0 || v_1.y * v_2.y > 0) {
+                x = (point1.x + point2.x) / 2;
+                y = (point1.y + point2.y) / 2;
+            }
+            else {
+                x = point2.x;
+                y = point2.y;
+            }
+        }
+        else {
+            //
+            x = (v_1.x * v_2.x * (point2.y - point1.y) + point1.x * v_1.y * v_2.x - point2.x * v_2.y * v_1.x) / (v_1.y * v_2.x - v_1.x * v_2.y);
+            if (v_1.x != 0) {
+                y = (x - point1.x) * v_1.y / v_1.x + point1.y;
+            }
+            else {
+                y = (x - point2.x) * v_2.y / v_2.x + point2.y;
+            }
+        }
+        return {x:x, y:y};
+
+    }
+</script>
+</body>
+</html>
+
+
+
+
+
